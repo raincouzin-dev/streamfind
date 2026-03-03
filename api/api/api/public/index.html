@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamFind — Find Anything, Anywhere</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --accent: #e8c547;
+    --accent2: #ff6b6b;
+    --text: #f0ede8;
+    --muted: #6b6878;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh; overflow-x: hidden; padding-bottom: 80px;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 20%, rgba(232,197,71,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 80% 80%, rgba(255,107,107,0.05) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+  header { padding: 52px 0 36px; text-align: center; }
+  .logo {
+    font-family: 'Playfair Display', serif; font-size: 12px; font-style: italic;
+    color: var(--accent); letter-spacing: 4px; text-transform: uppercase; margin-bottom: 12px;
+    opacity: 0; animation: fadeUp .5s ease forwards;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif; font-size: clamp(32px,5.5vw,58px);
+    font-weight: 700; line-height: 1.08; letter-spacing: -1px;
+    opacity: 0; animation: fadeUp .5s .1s ease forwards;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .sub {
+    color: var(--muted); font-size: 14px; margin-top: 12px; font-weight: 300;
+    opacity: 0; animation: fadeUp .5s .2s ease forwards;
+  }
+  .search-wrap { margin: 32px 0 0; opacity: 0; animation: fadeUp .5s .3s ease forwards; }
+  .search-box {
+    display: flex; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .search-box:focus-within {
+    border-color: rgba(232,197,71,.4);
+    box-shadow: 0 0 0 4px rgba(232,197,71,.06);
+  }
+  .search-input {
+    flex: 1; background: none; border: none; outline: none;
+    padding: 18px 22px; font-family: 'DM Sans', sans-serif; font-size: 16px; color: var(--text);
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-btn {
+    background: var(--accent); border: none; padding: 16px 28px;
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
+    color: #0a0a0f; cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+    transition: background .2s; flex-shrink: 0;
+  }
+  .search-btn:hover { background: #f0d060; }
+  .controls {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px; margin-top: 12px;
+  }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 100px;
+    padding: 5px 14px; font-size: 12px; font-family: 'DM Mono', monospace;
+    color: var(--muted); cursor: pointer; transition: all .2s; letter-spacing: .3px;
+    user-select: none;
+  }
+  .chip:hover, .chip.active { border-color: var(--accent); color: var(--accent); background: rgba(232,197,71,.07); }
+  .region-wrap { display: flex; align-items: center; gap: 8px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+  .region-select {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); outline: none;
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  #results { margin: 44px 0; }
+  .trending-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px; margin-bottom: 48px;
+  }
+  .trend-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; cursor: pointer; transition: all .2s;
+    opacity: 0; animation: fadeUp .35s ease forwards;
+  }
+  .trend-card:hover { border-color: rgba(232,197,71,.3); transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+  .trend-poster { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; background: var(--surface2); }
+  .trend-poster-ph { width: 100%; aspect-ratio: 2/3; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .trend-info { padding: 9px 10px; }
+  .trend-title { font-family: 'Playfair Display', serif; font-size: 12px; font-weight: 700; line-height: 1.3; margin-bottom: 2px; }
+  .trend-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .result-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; margin-bottom: 14px;
+    display: grid; grid-template-columns: 72px 1fr auto; gap: 18px; align-items: start;
+    opacity: 0; transform: translateY(10px); animation: fadeUp .35s ease forwards;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .result-card:hover { border-color: rgba(232,197,71,.2); box-shadow: 0 4px 24px rgba(0,0,0,.25); }
+  .card-poster { width: 72px; height: 104px; border-radius: 8px; object-fit: cover; display: block; background: var(--surface2); }
+  .card-poster-ph { width: 72px; height: 104px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 28px; border: 1px solid var(--border); }
+  .card-body { min-width: 0; }
+  .card-title { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 700; line-height: 1.2; margin-bottom: 4px; }
+  .card-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  .card-desc { font-size: 13px; color: rgba(240,237,232,.62); line-height: 1.6; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .badges { display: flex; flex-wrap: wrap; gap: 7px; min-height: 26px; align-items: center; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px;
+    border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04);
+    color: var(--text); text-decoration: none; transition: all .15s;
+  }
+  .badge:hover { border-color: rgba(232,197,71,.4); color: var(--accent); }
+  .badge img { width: 14px; height: 14px; border-radius: 3px; object-fit: contain; }
+  .badge-type { font-size: 9px; color: var(--muted); margin-left: 1px; }
+  .no-stream { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); font-style: italic; }
+  .loading-badges { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 9px; flex-shrink: 0; min-width: 82px; }
+  .rating { font-family: 'Playfair Display', serif; font-size: 21px; font-style: italic; color: var(--accent); font-weight: 700; }
+  .rating-lbl { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); text-align: right; }
+  .type-tag { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); text-transform: uppercase; }
+  .track-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 11px; border-radius: 8px; font-family: 'DM Mono', monospace;
+    font-size: 10px; cursor: pointer; transition: all .2s; white-space: nowrap;
+  }
+  .track-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .track-btn.on { background: rgba(255,107,107,.08); border-color: var(--accent2); color: var(--accent2); }
+  .loading { text-align: center; padding: 64px 0; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; }
+  .spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .75s linear infinite; margin: 0 auto 18px; }
+  .empty { text-align: center; padding: 72px 0; color: var(--muted); }
+  .empty-icon { font-size: 44px; margin-bottom: 14px; }
+  .empty h3 { font-family: 'Playfair Display', serif; font-style: italic; font-size: 20px; margin-bottom: 8px; color: var(--text); }
+  .empty p { font-size: 13px; line-height: 1.7; }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px;
+    font-family: 'DM Mono', monospace; font-size: 12px; z-index: 100;
+    transform: translateY(80px); opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1); max-width: 270px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast-title { color: var(--accent); margin-bottom: 2px; font-weight: 500; }
+  .toast-body { color: var(--muted); font-size: 11px; }
+  .wl-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(10,10,15,.97); backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border); padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between; z-index: 50;
+    transform: translateY(100%); transition: transform .3s ease;
+  }
+  .wl-bar.show { transform: translateY(0); }
+  .wl-count { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .wl-count strong { color: var(--accent); }
+  .wl-items { display: flex; gap: 6px; flex: 1; margin: 0 16px; overflow: hidden; }
+  .wl-pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 100px; padding: 3px 10px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .wl-clear { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); background: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 6px; cursor: pointer; transition: all .2s; flex-shrink: 0; }
+  .wl-clear:hover { color: var(--accent2); border-color: var(--accent2); }
+  footer { border-top: 1px solid var(--border); padding: 28px 0; text-align: center; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (max-width: 560px) {
+    .result-card { grid-template-columns: 56px 1fr; }
+    .card-right { display: none; }
+    .card-poster, .card-poster-ph { width: 56px; height: 82px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">✦ StreamFind</div>
+    <h1>Find it. Watch it.<br><em>Never wonder again.</em></h1>
+    <p class="sub">Search any show or movie — see exactly where to stream it right now.</p>
+    <div class="search-wrap">
+      <div class="search-box">
+        <input class="search-input" id="searchInput" type="text"
+          placeholder='Try "The Bear", "Dune", "Breaking Bad"...'
+          autocomplete="off" spellcheck="false">
+        <button class="search-btn" onclick="handleSearch()">Search</button>
+      </div>
+      <div class="controls">
+        <div class="filters">
+          <span class="chip active" onclick="setFilter(this,'multi')">All</span>
+          <span class="chip" onclick="setFilter(this,'movie')">Movies</span>
+          <span class="chip" onclick="setFilter(this,'tv')">TV Shows</span>
+        </div>
+        <div class="region-wrap">
+          Region:
+          <select class="region-select" id="regionSelect" onchange="rerun()">
+            <option value="US">🇺🇸 US</option>
+            <option value="GB">🇬🇧 UK</option>
+            <option value="CA">🇨🇦 CA</option>
+            <option value="AU">🇦🇺 AU</option>
+            <option value="DE">🇩🇪 DE</option>
+            <option value="FR">🇫🇷 FR</option>
+            <option value="JP">🇯🇵 JP</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="results"></div>
+  <footer>StreamFind · Powered by TMDB &amp; JustWatch data</footer>
+</div>
+<div class="toast" id="toast">
+  <div class="toast-title" id="tTitle"></div>
+  <div class="toast-body" id="tBody"></div>
+</div>
+<div class="wl-bar" id="wlBar">
+  <div class="wl-count"><strong id="wlCount">0</strong> tracked</div>
+  <div class="wl-items" id="wlItems"></div>
+  <button class="wl-clear" onclick="clearWl()">Clear</button>
+</div>
+<script>
+const IMG    = 'https://image.tmdb.org/t/p/w200';
+const IMG_SM = 'https://image.tmdb.org/t/p/w45';
+let filter = 'multi', lastQ = '', watchlist = [];
+
+async function apiFetch(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error('Request failed: ' + res.status);
+  return res.json();
+}
+
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleSearch();
+});
+loadTrending();
+
+async function loadTrending() {
+  const el = document.getElementById('results');
+  el.innerHTML = '<div class="section-label">Trending This Week</div><div class="loading"><div class="spinner"></div>Loading...</div>';
+  try {
+    const [mv, tv] = await Promise.all([
+      apiFetch('/api/trending?type=movie'),
+      apiFetch('/api/trending?type=tv')
+    ]);
+    const items = [
+      ...mv.results.slice(0,5).map(m => ({...m, _mt:'movie'})),
+      ...tv.results.slice(0,5).map(s => ({...s, _mt:'tv'}))
+    ].sort(() => Math.random() - 0.5).slice(0, 10);
+    el.innerHTML = '<div class="section-label">Trending This Week</div><div class="trending-grid">' + items.map(trendCard).join('') + '</div>';
+  } catch(e) { el.innerHTML = errBlock(e); }
+}
+
+function trendCard(item, i) {
+  const title = esc(item.title || item.name);
+  const raw = item.title || item.name;
+  const poster = item.poster_path ? IMG + item.poster_path : null;
+  const rating = item.vote_average?.toFixed(1);
+  return '<div class="trend-card" style="animation-delay:' + (i*.05) + 's" onclick="searchFor(' + JSON.stringify(raw) + ')">'
+    + (poster ? '<img class="trend-poster" src="' + poster + '" alt="" loading="lazy">' : '<div class="trend-poster-ph">' + (item._mt==='movie'?'🎬':'📺') + '</div>')
+    + '<div class="trend-info"><div class="trend-title">' + title + '</div>'
+    + '<div class="trend-meta">' + (item._mt==='movie'?'🎬':'📺') + (rating&&parseFloat(rating)>0?' ⭐'+rating:'') + '</div></div></div>';
+}
+
+function handleSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  lastQ = q;
+  doSearch(q);
+}
+
+function searchFor(title) {
+  document.getElementById('searchInput').value = title;
+  lastQ = title;
+  doSearch(title);
+}
+
+function rerun() { if (lastQ) doSearch(lastQ); }
+
+async function doSearch(q) {
+  const el = document.getElementById('results');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Searching for "' + esc(q) + '"...</div>';
+  try {
+    const data = await apiFetch('/api/search?query=' + encodeURIComponent(q) + '&type=' + filter);
+    const results = (data.results || []).filter(r => r.media_type !== 'person' && (r.title || r.name)).slice(0, 10);
+    if (!results.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🎬</div><h3>Nothing found for "' + esc(q) + '"</h3><p>Try a different spelling or switch the filter.</p></div>';
+      return;
+    }
+    el.innerHTML = '<div class="section-label">' + results.length + ' result' + (results.length!==1?'s':'') + ' — "' + esc(q) + '"</div>';
+    results.forEach((item, i) => {
+      const mt = item.media_type || filter;
+      const div = document.createElement('div');
+      div.innerHTML = resultCard(item, mt, i);
+      el.appendChild(div.firstElementChild);
+      setTimeout(() => loadBadges(item.id, mt, 'badges-' + item.id), i * 80);
+    });
+  } catch(e) { el.innerHTML = errBlock(e); }
+}
+
+function resultCard(item, mt, i) {
+  const title = item.title || item.name;
+  const year = (item.release_date || item.first_air_date || '').slice(0,4);
+  const rating = item.vote_average?.toFixed(1);
+  const poster = item.poster_path ? IMG + item.poster_path : null;
+  const isTV = mt === 'tv' || mt === 'tv_series';
+  const typeLabel = isTV ? 'TV SERIES' : 'MOVIE';
+  const tracked = watchlist.some(w => w.id === item.id);
+  return '<div class="result-card" style="animation-delay:' + (i*.07) + 's">'
+    + (poster ? '<img class="card-poster" src="' + poster + '" alt="" loading="lazy">' : '<div class="card-poster-ph">🎬</div>')
+    + '<div class="card-body">'
+    + '<div class="card-title">' + esc(title) + '</div>'
+    + '<div class="card-meta">' + [year, typeLabel].filter(Boolean).join(' · ') + '</div>'
+    + (item.overview ? '<div class="card-desc">' + esc(item.overview) + '</div>' : '')
+    + '<div class="badges" id="badges-' + item.id + '"><span class="loading-badges">Checking availability…</span></div>'
+    + '</div>'
+    + '<div class="card-right">'
+    + (rating && parseFloat(rating) > 0 ? '<div><div class="rating">' + rating + '</div><div class="rating-lbl">TMDB</div></div>' : '')
+    + '<div class="type-tag">' + typeLabel + '</div>'
+    + '<button class="track-btn ' + (tracked?'on':'') + '" id="track-' + item.id + '" onclick="toggleTrack(' + item.id + ',' + JSON.stringify(title) + ',\'' + mt + '\')">'
+    + (tracked ? '🔔 Tracking' : '🔕 Track') + '</button>'
+    + '</div></div>';
+}
+
+async function loadBadges(id, mt, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const type = (mt === 'tv' || mt === 'tv_series') ? 'tv' : 'movie';
+  const region = document.getElementById('regionSelect').value;
+  try {
+    const data = await apiFetch('/api/providers?id=' + id + '&type=' + type);
+    const r = data.results?.[region];
+    if (!r) { el.innerHTML = '<span class="no-stream">Not available for streaming in ' + region + '</span>'; return; }
+    const seen = new Set();
+    const items = [
+      ...(r.flatrate||[]).map(p=>({...p,_t:''})),
+      ...(r.free||[]).map(p=>({...p,_t:'Free'})),
+      ...(r.ads||[]).map(p=>({...p,_t:'w/Ads'})),
+      ...(r.buy||[]).map(p=>({...p,_t:'Buy'})),
+    ].filter(p => { if(seen.has(p.provider_id)) return false; seen.add(p.provider_id); return true; });
+    if (!items.length) { el.innerHTML = '<span class="no-stream">Not available for streaming in ' + region + '</span>'; return; }
+    const link = r.link || '#';
+    el.innerHTML = items.map(p => {
+      const logo = p.logo_path ? 'https://image.tmdb.org/t/p/w45' + p.logo_path : null;
+      return '<a href="' + link + '" target="_blank" rel="noopener" class="badge">'
+        + (logo ? '<img src="' + logo + '" alt="">' : '')
+        + esc(p.provider_name) + (p._t ? '<span class="badge-type">' + p._t + '</span>' : '')
+        + '</a>';
+    }).join('');
+  } catch { el.innerHTML = '<span class="no-stream">Couldn\'t load availability</span>'; }
+}
+
+function setFilter(el, f) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  filter = f;
+  if (lastQ) doSearch(lastQ);
+}
+
+function toggleTrack(id, title, mt) {
+  const btn = document.getElementById('track-' + id);
+  const idx = watchlist.findIndex(w => w.id === id);
+  if (idx >= 0) {
+    watchlist.splice(idx, 1);
+    if (btn) { btn.textContent = '🔕 Track'; btn.classList.remove('on'); }
+    showToast('Removed', '"' + title + '" untracked');
+  } else {
+    watchlist.push({ id, title, mt });
+    if (btn) { btn.textContent = '🔔 Tracking'; btn.classList.add('on'); }
+    showToast('Tracking 🔔', '"' + title + '" added to your list');
+  }
+  document.getElementById('wlCount').textContent = watchlist.length;
+  document.getElementById('wlItems').innerHTML = watchlist.map(w => '<div class="wl-pill">' + esc(w.title) + '</div>').join('');
+  document.getElementById('wlBar').classList.toggle('show', watchlist.length > 0);
+}
+
+function clearWl() {
+  watchlist = [];
+  document.querySelectorAll('.track-btn').forEach(b => { b.textContent = '🔕 Track'; b.classList.remove('on'); });
+  document.getElementById('wlCount').textContent = 0;
+  document.getElementById('wlItems').innerHTML = '';
+  document.getElementById('wlBar').classList.remove('show');
+  showToast('Cleared', 'Tracking list emptied');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function errBlock(e) {
+  return '<div class="empty"><div class="empty-icon">⚠️</div><h3>Something went wrong</h3><p>' + esc(String(e.message)) + '</p></div>';
+}
+
+let toastTimer;
+function showToast(title, body) {
+  document.getElementById('tTitle').textContent = title;
+  document.getElementById('tBody').textContent = body;
+  const t = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
